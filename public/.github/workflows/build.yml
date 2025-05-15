@@ -1,0 +1,42 @@
+name: Build ESP32 Firmware
+
+on:
+  push:
+    paths:
+      - '**.ino'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+        with:
+          version: 0.31.0
+
+      - name: Install ESP32 board
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+
+      - name: Compile sketch
+        run: |
+          mkdir -p build
+          arduino-cli compile --fqbn esp32:esp32:esp32 --output-dir ./build .
+
+      - name: Upload firmware to Vercel repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.VERCEL_REPO_TOKEN }}
+        run: |
+          FILENAME=$(ls build/*.bin | head -n 1)
+          git config --global user.email "you@example.com"
+          git config --global user.name "GitHub Actions"
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/YOUR_USERNAME/esp32-vercel.git
+          cp "$FILENAME" esp32-vercel/public/esp32nmonitoring.ino.bin
+          cd esp32-vercel
+          git add public/esp32nmonitoring.ino.bin
+          git commit -m "Update firmware"
+          git push
